@@ -1,11 +1,12 @@
 ﻿using System;
 using System.ComponentModel;
-
 using System.Collections.Generic;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
 using System.IO;
 using System.Linq;
+using Microsoft.WindowsAzure;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
+
 
 namespace BlobTransferUI
 {
@@ -36,24 +37,25 @@ namespace BlobTransferUI
         // Private BlobTransfer properties
         private string m_FileName;
         private ICloudBlob m_Blob;
+        /*
+                // Helper function to allow Storage Client 1.7 (Microsoft.WindowsAzure.StorageClient) to utilize this class.
+                // Remove this function if only using Storage Client 2.0 (Microsoft.WindowsAzure.Storage).
+                public void UploadBlobAsync(Microsoft.WindowsAzure.Storage.Blob.CloudBlob blob, string LocalFile)
+                {
+                    Microsoft.WindowsAzure.StorageCredentialsAccountAndKey account = blob.ServiceClient.Credentials as Microsoft.WindowsAzure.StorageCredentialsAccountAndKey;
+                    ICloudBlob blob2 = new CloudBlockBlob(blob.Attributes.Uri, new Microsoft.WindowsAzure.Storage.Auth.StorageCredentials(blob.ServiceClient.Credentials.AccountName, account.Credentials.ExportBase64EncodedKey()));
+                    UploadBlobAsync(blob2, LocalFile);
+                }
 
-        // Helper function to allow Storage Client 1.7 (Microsoft.WindowsAzure.StorageClient) to utilize this class.
-        // Remove this function if only using Storage Client 2.0 (Microsoft.WindowsAzure.Storage).
-        public void UploadBlobAsync(Microsoft.WindowsAzure.StorageClient.CloudBlob blob, string LocalFile)
-        {
-            Microsoft.WindowsAzure.StorageCredentialsAccountAndKey account = blob.ServiceClient.Credentials as Microsoft.WindowsAzure.StorageCredentialsAccountAndKey;
-            ICloudBlob blob2 = new CloudBlockBlob(blob.Attributes.Uri, new Microsoft.WindowsAzure.Storage.Auth.StorageCredentials(blob.ServiceClient.Credentials.AccountName, account.Credentials.ExportBase64EncodedKey()));
-            UploadBlobAsync(blob2, LocalFile);
-        }
-
-        // Helper function to allow Storage Client 1.7 (Microsoft.WindowsAzure.StorageClient) to utilize this class.
-        // Remove this function if only using Storage Client 2.0 (Microsoft.WindowsAzure.Storage).
-        public void DownloadBlobAsync(Microsoft.WindowsAzure.StorageClient.CloudBlob blob, string LocalFile)
-        {
-            Microsoft.WindowsAzure.StorageCredentialsAccountAndKey account = blob.ServiceClient.Credentials as Microsoft.WindowsAzure.StorageCredentialsAccountAndKey;
-            ICloudBlob blob2 = new CloudBlockBlob(blob.Attributes.Uri, new Microsoft.WindowsAzure.Storage.Auth.StorageCredentials(blob.ServiceClient.Credentials.AccountName, account.Credentials.ExportBase64EncodedKey()));
-            DownloadBlobAsync(blob2, LocalFile);
-        }
+                // Helper function to allow Storage Client 1.7 (Microsoft.WindowsAzure.StorageClient) to utilize this class.
+                // Remove this function if only using Storage Client 2.0 (Microsoft.WindowsAzure.Storage).
+                public void DownloadBlobAsync(Microsoft.WindowsAzure.StorageClient.CloudBlob blob, string LocalFile)
+                {
+                    Microsoft.WindowsAzure.StorageCredentialsAccountAndKey account = blob.ServiceClient.Credentials as Microsoft.WindowsAzure.StorageCredentialsAccountAndKey;
+                    ICloudBlob blob2 = new CloudBlockBlob(blob.Attributes.Uri, new Microsoft.WindowsAzure.Storage.Auth.StorageCredentials(blob.ServiceClient.Credentials.AccountName, account.Credentials.ExportBase64EncodedKey()));
+                    DownloadBlobAsync(blob2, LocalFile);
+                }
+                */
 
         public void UploadBlobAsync(ICloudBlob blob, string LocalFile)
         {
@@ -85,7 +87,7 @@ namespace BlobTransferUI
             ProgressStream pstream = new ProgressStream(fs);
             pstream.ProgressChanged += pstream_ProgressChanged;
             pstream.SetLength(fileSize);
-            m_Blob.ServiceClient.ParallelOperationThreadCount = 10;
+            m_Blob.ServiceClient.DefaultRequestOptions.ParallelOperationThreadCount = 10;
             asyncresult = m_Blob.BeginUploadFromStream(pstream, BlobTransferCompletedCallback, new BlobTransferAsyncState(m_Blob, pstream));
         }
 
@@ -115,7 +117,7 @@ namespace BlobTransferUI
             ProgressStream pstream = new ProgressStream(fs);
             pstream.ProgressChanged += pstream_ProgressChanged;
             pstream.SetLength(m_Blob.Properties.Length);
-            m_Blob.ServiceClient.ParallelOperationThreadCount = 10;
+            m_Blob.ServiceClient.DefaultRequestOptions.ParallelOperationThreadCount = 10;
             asyncresult = m_Blob.BeginDownloadToStream(pstream, BlobTransferCompletedCallback, new BlobTransferAsyncState(m_Blob, pstream));
         }
 

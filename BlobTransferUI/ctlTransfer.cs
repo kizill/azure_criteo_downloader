@@ -14,6 +14,7 @@ using Microsoft.WindowsAzure;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Core;
 using Microsoft.WindowsAzure.Storage.Blob.Protocol;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace BlobTransferUI
 {
@@ -25,7 +26,7 @@ namespace BlobTransferUI
         private string m_LocalFile;
         private string m_URL;
         private long m_FileLength;
-        private CloudBlob m_Blob;
+        private CloudBlockBlob m_Blob;
         BlobTransfer blobTransfer = new BlobTransfer();
 
         DateTime startTime;
@@ -48,7 +49,7 @@ namespace BlobTransferUI
             set { m_FileLength = value; lblProgress.Text = (value / 1024).ToString("N0") + " KB"; }
         }
 
-        public CloudBlob Blob
+        public CloudBlockBlob Blob
         {
             get { return m_Blob; }
             set { m_Blob = value; }

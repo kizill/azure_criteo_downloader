@@ -7,8 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
+
 using Microsoft.WindowsAzure;
-using Microsoft.WindowsAzure.StorageClient;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
 using System.Diagnostics;
 using System.IO;
 
@@ -16,11 +18,10 @@ namespace BlobTransferUI
 {
     public partial class Form1 : Form
     {
-        const string ACCOUNTNAME = "ENTER ACCOUNT NAME";
-        const string ACCOUNTKEY = "ENTER ACCOUNT KEY";
-        const string CONTAINER = "filetransfer";
+        const string CONTAINER = "criteo"; 
+        const string BASE_URI = "http://azuremlsampleexperiments.blob.core.windows.net/";
 
-        public delegate void AddFileTransferDelegate(CloudBlob b);
+        public delegate void AddFileTransferDelegate(CloudBlockBlob b);
         public delegate void FinishedLoadingFileTransferDelegate();
 
         private bool boolLoadingFileTransfer = false;
@@ -28,6 +29,7 @@ namespace BlobTransferUI
         private static CloudStorageAccount AccountFileTransfer;
         private static CloudBlobClient BlobClientFileTransfer;
         private static CloudBlobContainer ContainerFileTransfer;
+        private OperationContext ListCtx;
 
         // Keep track of active transfers so they can be cancelled when the form is shut down.
         private List<ctlTransfer> ActiveTransfers = new List<ctlTransfer>();
@@ -40,25 +42,38 @@ namespace BlobTransferUI
             System.Net.ServicePointManager.DefaultConnectionLimit = 35;
 
             InitializeComponent();
+            ListCtx = new OperationContext();
         }
 
+        /*
+         * CloudStorageAccount storageAccount = CloudStorageAccount.Parse("My connection string");
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("mycontainer");
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference("ARCS.TXT");
+            using (var fileStream = System.IO.File.OpenWrite(@"c:\a\ARCS.txt"))
+            {
+                blockBlob.DownloadToStream(fileStream);
+            }
+*/
         private void Form1_Shown(object sender, EventArgs e)
         {
             this.Refresh();
 
-            AccountFileTransfer = CloudStorageAccount.Parse("DefaultEndpointsProtocol=http;AccountName=" + ACCOUNTNAME + ";AccountKey=" + ACCOUNTKEY);
-            if (AccountFileTransfer != null)
-            {
-                BlobClientFileTransfer = AccountFileTransfer.CreateCloudBlobClient();
+            /*if (AccountFileTransfer != null)
+            {*/
+            BlobClientFileTransfer = new CloudBlobClient(new System.Uri(BASE_URI));
                 ContainerFileTransfer = BlobClientFileTransfer.GetContainerReference(CONTAINER);
-                ContainerFileTransfer.CreateIfNotExist();
-            }
+                //if (!ContainerFileTransfer.Exists())
+            //{
+              //  throw new Exception();
+            //}
+            //}
 
             GetFileTransferAsync();
         }
 
         // Add file entry to the listview
-        private void AddFileTransfer(CloudBlob b)
+        private void AddFileTransfer(CloudBlockBlob b)
         {
             //string DecodedPath = System.Web.HttpUtility.UrlDecode(b.Uri.AbsolutePath);
 
@@ -72,7 +87,7 @@ namespace BlobTransferUI
             lvi.SubItems.Add(file.Container);
             lvi.SubItems.Add(file.FileName);
             lvi.SubItems.Add((b.Properties.Length / 1024).ToString("N0"));
-            lvi.SubItems.Add(file.Blob.Attributes.Properties.LastModifiedUtc.ToLocalTime().ToString());
+            lvi.SubItems.Add(file.Blob.Properties.LastModified.Value.ToLocalTime().ToString());
 
             file.lvi = lvi;
         }
@@ -91,27 +106,24 @@ namespace BlobTransferUI
             }
             pictureFileTransferAnimatedLoading.Visible = true;
             lvFileTransfer.Items.Clear();
-            ResultContinuation continuation = null;
+            BlobContinuationToken continuation = null;
             BlobRequestOptions options = new BlobRequestOptions();
-            options.UseFlatBlobListing = true;
-            ContainerFileTransfer.BeginListBlobsSegmented(5, continuation, options, new AsyncCallback(ListFileTransferCallback), null);
+            ContainerFileTransfer.BeginListBlobsSegmented("", true, BlobListingDetails.All, 5, continuation, options, ListCtx, new AsyncCallback(ListFileTransferCallback), null);
         }
 
         // Callback for the segmented file listing in order to continue listing segments
         private void ListFileTransferCallback(IAsyncResult result)
         {
-            ResultSegment<IListBlobItem> list = ContainerFileTransfer.EndListBlobsSegmented(result);
-
-            foreach (CloudBlob b in list.Results)
+            var blobResultSegment = ContainerFileTransfer.EndListBlobsSegmented(result);
+            foreach (CloudBlockBlob b in blobResultSegment.Results)
             {
                 this.Invoke(new AddFileTransferDelegate(this.AddFileTransfer), new object[] { b });
             }
 
-            if (list.ContinuationToken != null)
+            if (blobResultSegment.ContinuationToken != null)
             {
                 BlobRequestOptions options = new BlobRequestOptions();
-                options.UseFlatBlobListing = true;
-                ContainerFileTransfer.BeginListBlobsSegmented(5, list.ContinuationToken, options, new AsyncCallback(ListFileTransferCallback), null);
+                ContainerFileTransfer.BeginListBlobsSegmented("", true, BlobListingDetails.All, 5, blobResultSegment.ContinuationToken, options, ListCtx, new AsyncCallback(ListFileTransferCallback), null);
             }
             else
             {
@@ -136,7 +148,7 @@ namespace BlobTransferUI
             folder = txtLocalDownloadPath_FileTransfer.Text;
             folder = System.IO.Path.Combine(folder, file.Container);
             TransferFile.LocalFile = System.IO.Path.Combine(folder, System.IO.Path.GetFileName(file.Blob.Uri.AbsolutePath));
-            TransferFile.FileLength = file.Blob.Attributes.Properties.Length;
+            TransferFile.FileLength = file.Blob.Properties.Length;
             TransferFile.TransferCompleted += new EventHandler<AsyncCompletedEventArgs>(FileTransfer_DownloadCompleted);
             TransferFile.Tag = file.lvi;
             TransferFile.Blob = file.Blob;
@@ -151,6 +163,7 @@ namespace BlobTransferUI
         // Upload a file
         private void UploadFileTransfer(string File)
         {
+            /*
             if (txtUploadContainer.Text == "")
             {
                 MessageBox.Show("Enter a container (usually your alias)");
@@ -159,7 +172,7 @@ namespace BlobTransferUI
 
             txtUploadContainer.Text = txtUploadContainer.Text.Replace("\\", "/");
 
-            CloudBlob blob = ContainerFileTransfer.GetBlobReference(txtUploadContainer.Text + "/" + System.IO.Path.GetFileName(File));
+            CloudBlockBlob blob = ContainerFileTransfer.GetBlobReference(txtUploadContainer.Text + "/" + System.IO.Path.GetFileName(File));
 
             ctlTransfer UploadFile = new ctlTransfer();
             UploadFile.Blob = blob;
@@ -170,7 +183,7 @@ namespace BlobTransferUI
             flowLayoutPanel1.Controls.Add(UploadFile);
             flowLayoutPanel1.ScrollControlIntoView(UploadFile);
             UploadFile.Upload();
-            ActiveTransfers.Add(UploadFile);
+            ActiveTransfers.Add(UploadFile);*/
         }
 
         void FileTransfer_DownloadCompleted(object sender, AsyncCompletedEventArgs e)
@@ -274,10 +287,10 @@ namespace BlobTransferUI
 
     public class ItemBase
     {
-        private CloudBlob m_Blob;
+        private CloudBlockBlob m_Blob;
         private System.Windows.Forms.ListViewItem m_lvi;
 
-        public CloudBlob Blob
+        public CloudBlockBlob Blob
         {
             get { return m_Blob; }
             set { m_Blob = value; }
