@@ -98,7 +98,7 @@
             this.txtLocalDownloadPath_FileTransfer.Name = "txtLocalDownloadPath_FileTransfer";
             this.txtLocalDownloadPath_FileTransfer.Size = new System.Drawing.Size(318, 20);
             this.txtLocalDownloadPath_FileTransfer.TabIndex = 13;
-            this.txtLocalDownloadPath_FileTransfer.Text = "C:\\Downloads";
+            this.txtLocalDownloadPath_FileTransfer.Text = "F:\\";
             // 
             // pictureFileTransferAnimatedLoading
             // 
@@ -226,7 +226,7 @@
             // openFileDialogUploadFile
             // 
             this.openFileDialogUploadFile.FileName = "openFileDialog1";
-            this.openFileDialogUploadFile.InitialDirectory = "C:\\";
+            this.openFileDialogUploadFile.InitialDirectory = "F:\\";
             this.openFileDialogUploadFile.RestoreDirectory = true;
             // 
             // flowLayoutPanel1

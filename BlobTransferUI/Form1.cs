@@ -62,13 +62,8 @@ namespace BlobTransferUI
             /*if (AccountFileTransfer != null)
             {*/
             BlobClientFileTransfer = new CloudBlobClient(new System.Uri(BASE_URI));
-                ContainerFileTransfer = BlobClientFileTransfer.GetContainerReference(CONTAINER);
-                //if (!ContainerFileTransfer.Exists())
-            //{
-              //  throw new Exception();
-            //}
-            //}
-
+            ContainerFileTransfer = BlobClientFileTransfer.GetContainerReference("criteo");
+            
             GetFileTransferAsync();
         }
 
@@ -79,7 +74,7 @@ namespace BlobTransferUI
 
             FileTransfer file = new FileTransfer();
             file.Blob = b;
-            file.Container = b.Parent.Uri.ToString().Substring(b.Container.Uri.ToString().Length + 1).TrimEnd('/');
+            file.Container = "criteo";
             file.FileName = System.IO.Path.GetFileName(b.Uri.AbsolutePath);
 
             ListViewItem lvi = lvFileTransfer.Items.Add("");
@@ -87,7 +82,13 @@ namespace BlobTransferUI
             lvi.SubItems.Add(file.Container);
             lvi.SubItems.Add(file.FileName);
             lvi.SubItems.Add((b.Properties.Length / 1024).ToString("N0"));
-            lvi.SubItems.Add(file.Blob.Properties.LastModified.Value.ToLocalTime().ToString());
+            if (file.Blob.Properties.LastModified.HasValue)
+            {
+                lvi.SubItems.Add(file.Blob.Properties.LastModified.Value.ToLocalTime().ToString());
+            } else
+            {
+                lvi.SubItems.Add("NOPE");
+            }
 
             file.lvi = lvi;
         }
@@ -102,10 +103,18 @@ namespace BlobTransferUI
             }
             else
             {
+                pictureFileTransferAnimatedLoading.Visible = true;
+                lvFileTransfer.Items.Clear();
                 boolLoadingFileTransfer = true;
+                for (int i = 0; i <= 23; ++i)
+                {
+                    var fname = String.Format("day_{0}.gz", i);
+                    CloudBlockBlob blockBlob = ContainerFileTransfer.GetBlockBlobReference(fname);
+                    AddFileTransfer(blockBlob);
+                }
+                return;
             }
-            pictureFileTransferAnimatedLoading.Visible = true;
-            lvFileTransfer.Items.Clear();
+            
             BlobContinuationToken continuation = null;
             BlobRequestOptions options = new BlobRequestOptions();
             ContainerFileTransfer.BeginListBlobsSegmented("", true, BlobListingDetails.All, 5, continuation, options, ListCtx, new AsyncCallback(ListFileTransferCallback), null);
